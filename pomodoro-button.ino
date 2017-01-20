@@ -5,16 +5,14 @@ const int PIN_BLUE = 9;
 const int PIN_BUTTON_OUT = 7;
 const int PIN_BUTTON_IN = 8;
 
-const int POMODORO_MINUTES = 25;
-const unsigned long MINUTE_MILLIS = 60000; // avoid int overflow
-const unsigned long POMODORO_MILLIS = POMODORO_MINUTES * MINUTE_MILLIS;
+const unsigned long BUTTON_DEBOUNCE_MILLIS = 100;
 
-const unsigned long BUTTON_DEBOUNCE_MILLIS = 50;
-
-unsigned long pomodoroStartMillis = 0;
-
+int lastButtonState = LOW;
 int realButtonState = LOW;
 unsigned long lastButtonDebounceMillis = 0;
+
+bool doNotDisturbActive = false;
+bool buttonPressHandled = false;
 
 void setup() {
   pinMode(PIN_RED, OUTPUT);
@@ -23,22 +21,33 @@ void setup() {
 
   pinMode(PIN_BUTTON_OUT, OUTPUT);
   pinMode(PIN_BUTTON_IN, INPUT);
+
+  digitalWrite(PIN_BUTTON_OUT, HIGH);
 }
 
 void loop() {
-  if (isPomodoroOngoing()) {
+  if (isButtonPressed()) {
+    if (!buttonPressHandled) {
+      doNotDisturbActive = !doNotDisturbActive;
+      buttonPressHandled = true;
+    }
+  } else {
+    buttonPressHandled = false;  
+  }
+
+  if (doNotDisturbActive) {
+    // Red
     emitColor(255, 0, 0);
   } else {
-    if (isButtonPressed()) {
-      startPomodoro();
-    }  
+    // Green
+    emitColor(0, 255, 0);
   }
 }
 
 bool isButtonPressed() {
   int buttonReading = digitalRead(PIN_BUTTON_IN);
 
-  if (buttonReading != realButtonState) {
+  if (buttonReading != lastButtonState) {
     lastButtonDebounceMillis = millis();
   }
 
@@ -46,20 +55,13 @@ bool isButtonPressed() {
 
   if (millisSinceLastDebounce > BUTTON_DEBOUNCE_MILLIS) {
     realButtonState = buttonReading;
+    lastButtonState = LOW;
+  } else {
+    realButtonState = LOW;
+    lastButtonState = buttonReading;  
   }
 
   return realButtonState;
-}
-
-bool isPomodoroOngoing() {
-  unsigned long currentMillis = millis();
-  unsigned long pomodoroEndMillis = pomodoroStartMillis + POMODORO_MILLIS;
-  
-  return pomodoroStartMillis > 0 && currentMillis < pomodoroEndMillis;
-}
-
-void startPomodoro() {
-  pomodoroStartMillis = millis();
 }
 
 void emitColor(int r, int g, int b) {
@@ -67,4 +69,3 @@ void emitColor(int r, int g, int b) {
   analogWrite(PIN_GREEN, g);
   analogWrite(PIN_BLUE, b);
 }
-
